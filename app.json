@@ -4,7 +4,7 @@
     "slug": "Ojiva",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/images/cover.png",
+    "icon": "./src/assets/images/Cover2.jpg",
     "scheme": "healthcard",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -14,9 +14,9 @@
       "package": "com.mercy.healthcard",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./src/assets/images/cover.png",
-        "backgroundImage": "./src/assets/images/cover.png",
-        "monochromeImage": "./src/assets/images/cover.png"
+        "foregroundImage": "./src/assets/images/Cover2.jpg",
+        "backgroundImage": "./src/assets/images/Cover2.jpg",
+        "monochromeImage": "./src/assets/images/Cover2.jpg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
