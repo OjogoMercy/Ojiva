@@ -4,7 +4,7 @@
     "slug": "Ojiva",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/images/logo2.png",
+    "icon": "./src/assets/images/Cover2.jpg",
     "scheme": "healthcard",
     "userInterfaceStyle": "automatic",
     "ios": {
