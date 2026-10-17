@@ -7,7 +7,6 @@ import { useMomStore } from "@/src/store/useMomStore";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -43,10 +42,23 @@ const SignUp = () => {
     return emailRegex.test(email);
   };
   const SIGNUP_STAGES = [
-    "Creating your account",
-    "Personalizing your dashboard",
-    "Logging you in",
+    {
+      title: "Creating your account",
+      image: images.mascot,
+      bar: "Almost there...",
+    },
+    {
+      title: "Personalizing your dashboard",
+      image: images.mascotWaving,
+      bar: "Just a few more seconds",
+    },
+    {
+      title: "Logging you in",
+      image: images.mascotLoved,
+      bar: "Everything is being prepared safely",
+    },
   ];
+  const currentStage = SIGNUP_STAGES[stageIndex];
   const MIN_STAGE_MS = 700;
 
   const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -70,19 +82,19 @@ const SignUp = () => {
   const handleSignUp = async () => {
     try {
       if (!Username.trim() || !email.trim() || !password.trim()) {
-        Alert.alert("Error", "Please fill in all fields");
+        showToast("Please fill in all fields", "warning");
         return;
       }
       if (!validateEmail(email)) {
-        Alert.alert("Please enter valid email address");
+        showToast("Please enter valid email address", "warning");
         return;
       }
       if (password.length < 6) {
-        Alert.alert("Error", "Password must be at least 6 characters long");
+        showToast("Password must be at least 6 characters long", "warning");
         return;
       }
       if (password !== confirmPassword) {
-        Alert.alert("Passwords do not match");
+        showToast("Passwords do not match", "warning");
         return;
       }
 
@@ -121,6 +133,7 @@ const SignUp = () => {
         showToast(errorMsg, "error");
         return;
       }
+      setStageIndex(2);
 
       // Verify login data
       if (!loginResponse.token || !loginResponse.userId) {
@@ -146,7 +159,6 @@ const SignUp = () => {
       showToast("Setting up your account", "success");
       await getIfOnboarded();
 
-      setStageIndex(2);
       await loginAuth?.(sessionData);
       await wait(MIN_STAGE_MS);
     } catch (e) {
@@ -162,7 +174,7 @@ const SignUp = () => {
       }
 
       setError(errorMessage);
-      Alert.alert("Sign Up Error", errorMessage);
+      showToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -182,13 +194,13 @@ const SignUp = () => {
         <Image
           source={images.logo}
           style={{
-            height: SIZES.navTitle * 3,
-            width: SIZES.navTitle * 3,
+            height: SIZES.navTitle * 1.5,
+            width: SIZES.navTitle * 1.5,
             resizeMode: "contain",
           }}
         />
         <Image
-          source={images.mascot}
+          source={currentStage.image}
           style={{
             width: SCREEN_WIDTH * 0.7,
             height: SCREEN_HEIGHT * 0.4,
@@ -197,9 +209,7 @@ const SignUp = () => {
             resizeMode: "contain",
           }}
         />
-        <ThemedText type="text3green">
-          {SIGNUP_STAGES[stageIndex]}...
-        </ThemedText>
+        <ThemedText type="text3green">{currentStage.title}...</ThemedText>
         <View
           style={{
             width: "90%",
@@ -219,9 +229,7 @@ const SignUp = () => {
             }}
           />
         </View>
-        <ThemedText>
-          {Math.round(((stageIndex + 1) / SIGNUP_STAGES.length) * 100)}%
-        </ThemedText>
+        <ThemedText>{currentStage.bar}</ThemedText>
       </View>
     );
   }

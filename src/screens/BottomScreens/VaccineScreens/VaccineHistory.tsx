@@ -78,7 +78,7 @@ const VaccineHistory = () => {
     dismiss,
     onAllAnswered,
     openVaccineCount,
-  } = useCatchupPrompt(babyId || "", safeDate);
+  } = useCatchupPrompt(babyId || "", safeDate as Date);
   useFocusEffect(
     useCallback(() => {
       if (babyId && safeDate) {
@@ -88,13 +88,14 @@ const VaccineHistory = () => {
   );
 
   // different sections
+  if (!activeChildId) return;
   const sections: StageSection[] = STAGE_ORDER.map((stageTitle) => {
     const found = VaccineData.find((v) => v.title === stageTitle);
     const isCurrentStage = stageTitle === currentStageTitle;
     const vaccines: VaccineRow[] = (found?.data ?? []).map((v) => ({
       id: v.id,
       name: v.name,
-      isDone: completedIds.includes(v.id),
+      isDone: (completedIds[activeChildId] ?? []).includes(v.id),
       isCurrentStage,
     }));
     const allDone = vaccines.length > 0 && vaccines.every((v) => v.isDone);
@@ -111,7 +112,7 @@ const VaccineHistory = () => {
       acc + (VaccineData.find((v) => v.title === s.title)?.data.length ?? 0),
     0,
   );
-  const totalDone = completedIds.length;
+  const totalDone = (completedIds[activeChildId] ?? []).length;
   const overallPercent = totalVaccines
     ? Math.round((totalDone / totalVaccines) * 100)
     : 0;
@@ -149,7 +150,7 @@ const VaccineHistory = () => {
         { text: "Cancel", style: "cancel" },
         {
           text: "Yes UnMark",
-          onPress: () => markVaccineUndone(id),
+          onPress: () => markVaccineUndone(id, activeChildId),
           style: "destructive",
         },
       ],
@@ -225,9 +226,10 @@ const VaccineHistory = () => {
           const fullSection = VaccineData.find(
             (v) => v.title === section.title,
           );
+          const idsForChild = completedIds[activeChildId] ?? [];
           const sectionTotal = fullSection?.data.length ?? 0;
           const sectionDone =
-            fullSection?.data.filter((v) => completedIds.includes(v.id))
+            fullSection?.data.filter((v) => idsForChild.includes(v.id))
               .length ?? 0;
 
           return (
@@ -381,14 +383,13 @@ const VaccineHistory = () => {
             setClose={() => setModalVisible(false)}
             close={modalVisible}
             onPress={() => {
-              console.log("Button Pressed here");
               setModalVisible(false);
               setVisible(true);
             }}
           />
           <CatchupBottomSheet
             groups={openGroups}
-            dob={safeDate}
+            dob={safeDate as Date}
             childId={babyId || ""}
             visible={visible}
             onDismiss={() => setVisible(false)}

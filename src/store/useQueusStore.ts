@@ -8,9 +8,8 @@ interface PendingImmunisation {
   vaccineId: string;
   childId: string;
   dueDate: Date;
-  userId:string
+  userId: string;
 }
-
 interface SyncQueueStore {
   pending: PendingImmunisation[];
   isSyncing: boolean;
@@ -29,36 +28,49 @@ export const useSyncQueueStore = create<SyncQueueStore>()(
         set((state) => ({
           pending: [...state.pending, { ...entry, queueId }],
         }));
-      },
 
-      flush: async () => {
-        const { pending, isSyncing } = get();
-        if (isSyncing || pending.length === 0) return;
-
-        set({ isSyncing: true });
-
-        for (const entry of pending) {
-          try {
-            await createImmunisation({
-              vaccineId: entry.vaccineId,
-              childId: entry.childId,
-              dueDate: entry.dueDate,
-              userId: "",
-            });
-            // success — remove just this entry
-            set((state) => ({
-              pending: state.pending.filter((p) => p.queueId !== entry.queueId),
-            }));
-          } catch (e) {
-            console.warn(
-              "[SyncQueue] Failed to sync entry, will retry later",
-              entry.queueId,
-            );
-          }
+        // Auto-trigger flush when a new item is added
+        if (!get().isSyncing) {
+          get().flush();
         }
-
-        set({ isSyncing: false });
       },
+
+  flush: async () => {
+  const { isSyncing, pending } = get();
+  if (isSyncing || pending.length === 0) return;
+
+  set({ isSyncing: true });
+
+  const queueToProcess = [...get().pending];
+
+  for (const entry of queueToProcess) {
+    try {
+      await createImmunisation({
+        vaccineId: entry.vaccineId,
+        childId: entry.childId,
+        dueDate: new Date(entry.dueDate),
+        userId: entry.userId,
+      });
+
+      set((state) => ({
+        pending: state.pending.filter((p) => p.queueId !== entry.queueId),
+      }));
+    } catch (e: any) {
+      const statusCode = e?.response?.status;
+
+      if (statusCode === 409) {
+        set((state) => ({
+          pending: state.pending.filter((p) => p.queueId !== entry.queueId),
+        }));
+      } else {
+        
+        console.log("sync failed, will retry:", entry.queueId, e?.message);
+      }
+    }
+  }
+
+  set({ isSyncing: false });
+},
     }),
     {
       name: "healthcard-sync-queue",

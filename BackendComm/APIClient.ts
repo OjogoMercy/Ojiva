@@ -2,7 +2,7 @@
 import axios from "axios";
 import authStorage from "./authStorage";
 
-const BASE_URL = "https://backend-healthCard.onrender.com";
+const BASE_URL = process.env.EXPO_PUBLIC_URL
 const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 5000,
@@ -18,7 +18,7 @@ interface RegisterPayload {
 }
 
 export interface LoginResponse {
-  userName: string;
+  userName?: string;
   status: "success" | "error";
   message: string;
   token?: string;
@@ -115,7 +115,7 @@ export const logoutUser = () => {
 
 export const getUserProfile = async (userId: string) => {
   const response = await apiClient.get("/api/profile");
-  console.log("response for user profile", response.data);
+  console.log("response for user profile");
   if (!userId) {
     throw new Error("User ID is required to fetch profile");
   }
@@ -156,13 +156,17 @@ export const getGrowthRecords = async (childId: string, userId: string) => {
   return response.data;
 };
 
-export const createImmunisation = async (
-  vaccineId: string,
-  dueDate: Date,
-  childId: string,
-  userId: string,
-) => {
-  console.log("Creating immunisation record");
+export const createImmunisation = async ({
+  vaccineId,
+  dueDate,
+  childId,
+  userId,
+}: {
+  vaccineId: string;
+  dueDate: Date;
+  childId: string;
+  userId: string;
+}) => {
   if (!userId || !childId) {
     throw new Error("User ID and Child ID are required to create immunisation");
   }
@@ -187,10 +191,11 @@ export const getImmunisationsByChild = async (
   userId: string,
 ) => {
   if (!childId || !userId) {
-    throw new Error(" ID is required to fetch immunisations");
+    throw new Error("childId and userId are required to fetch immunisations");
   }
-  const response = await apiClient.get(`/api/children/immunisations`);
-  return response.data;
+
+  const response = await apiClient.get(`/api/children/${childId}/immunisations`);
+  return response.data.immunisations;
 };
 
 export const updateImmunisation = async (

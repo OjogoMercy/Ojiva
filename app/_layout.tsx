@@ -1,6 +1,7 @@
 import { getUserProfile } from "@/BackendComm/APIClient";
 import { AuthProvider, useAuth } from "@/BackendComm/AuthContext";
 import authStorage, { hasOnboarded } from "@/BackendComm/authStorage";
+import { reconcileVaccineState } from "@/src/CatchUp/reconcileVaccineState";
 import { ToastProvider, useToast } from "@/src/components/ToastContext";
 import { COLORS } from "@/src/constants/THEME";
 import { useBabyStore } from "@/src/store/useBabyStore";
@@ -15,7 +16,23 @@ function NavigationGateKeeper() {
   const clearChildren = useBabyStore((s) => s.clearChildren);
   const { session, isLoading, logoutAuth } = useAuth();
   const { showToast } = useToast();
-
+  
+  const warmUpConnection = async () => {
+    try {
+      await Promise.race([
+        fetch("https://backend-healthCard.onrender.com", {
+          method: "HEAD",
+          headers: { "cache-control": "no-cache" },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 10000),
+        ),
+      ]);
+      console.log("connection warmed successfully");
+    } catch (e) {
+      console.log("warm up failed ", e);
+    }
+  };
   const isTokenExpired = (token: string): boolean => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
@@ -25,13 +42,20 @@ function NavigationGateKeeper() {
       return true;
     }
   };
+
   useEffect(() => {
     let isMounted = true;
     const getUserData = async () => {
       if (isLoading) return;
+      const hasNoActiveSession =
+        !session?.token || !session?.userId || isTokenExpired(session.token);
+
+      if (hasNoActiveSession) {
+        warmUpConnection();
+      }
 
       if (session?.token && isTokenExpired(session.token)) {
-        console.log("[NavigationGateKeeper] Token expired");
+
         showToast("Session Expired , Please log in again", "error");
         await logoutAuth();
         clearChildren();
@@ -53,7 +77,6 @@ function NavigationGateKeeper() {
           console.warn("[NavigationGateKeeper] No user data returned");
           return;
         }
-        console.log("[NavigationGateKeeper] User data received:");
 
         if (session?.token && session?.userId && session?.email) {
           await authStorage.storeUserData({
@@ -64,13 +87,24 @@ function NavigationGateKeeper() {
           });
         } else {
           console.warn(
-            "[NavigationGateKeeper] Cannot update user data - session missing required fields",
+            "[NavigationGateKeeper] Cannot update user data ",
           );
         }
         const profile = UserData.profile;
 
         if (profile.children && profile.children.length > 0) {
           setChild(profile.children);
+
+          const currentActiveChildId = useBabyStore.getState().activeChildId;
+          if (currentActiveChildId) {
+            await reconcileVaccineState(currentActiveChildId, session.userId);
+            console.log("reconciled");
+          } else {
+            console.warn(
+              "[NavigationGateKeeper] No active child after setChild",
+            );
+          }
+
           console.log("child data stored successfully");
         } else {
           clearChildren();
@@ -102,7 +136,6 @@ function NavigationGateKeeper() {
     );
   }
 
-  console.log("[NavigationGateKeeper] Is user authenticated?:", !!session);
   return (
     <RootNavigator isAuthenticated={!!session} hasOnboarded={hasOnboarded} />
   );

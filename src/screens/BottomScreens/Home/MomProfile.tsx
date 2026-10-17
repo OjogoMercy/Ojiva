@@ -1,7 +1,9 @@
 import { createChild, logoutUser } from "@/BackendComm/APIClient";
 import CustomInput from "@/src/components/CustomInput";
 import PrimaryButton from "@/src/components/PrimaryButton";
+import { useToast } from "@/src/components/ToastContext";
 import WrapScrollView from "@/src/components/WrapScrollView";
+import { getAgeLabel } from "@/src/constants/Functions";
 import { general } from "@/src/constants/General";
 import { images } from "@/src/constants/images";
 import { COLORS, SCREEN_WIDTH, SIZES } from "@/src/constants/THEME";
@@ -9,9 +11,11 @@ import { ThemedText } from "@/src/constants/ThemedText";
 import { useBabyStore } from "@/src/store/useBabyStore";
 import { useMomStore } from "@/src/store/useMomStore";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
-import React, { useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -22,28 +26,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-const getAgeLabel = (dob: string): string => {
-  const birth = new Date(dob);
-  const now = new Date();
-  const diffInDays = Math.floor(
-    (now.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  const weeks = Math.floor(diffInDays / 7);
-  const months =
-    (now.getFullYear() - birth.getFullYear()) * 12 +
-    (now.getMonth() - birth.getMonth());
-  const years = now.getFullYear() - birth.getFullYear();
-
-  if (weeks < 4) return `${weeks} week${weeks === 1 ? "" : "s"} old`;
-  if (months < 24) return `${months} month${months === 1 ? "" : "s"} old`;
-  return `${years} year${years === 1 ? "" : "s"} old`;
-};
 
 const MomProfile = () => {
   const navigation = useNavigation<any>();
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [comingSoonMessage, setComingSoonMessage] = useState("");
   const [formActive, setFormActive] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   const mom = useMomStore((s) => s.mom);
   const clearMom = useMomStore((s) => s.clearMom);
@@ -52,6 +41,50 @@ const MomProfile = () => {
   const triggerComingSoon = (message: string) => {
     setComingSoonMessage(message);
     setShowComingSoon(true);
+  };
+
+  useEffect(() => {
+    loadSavedImage();
+  }, []);
+  const PROFILE_PIC_KEY = "@profile_picture_uri";
+  const loadSavedImage = async () => {
+    try {
+      const savedUri = await AsyncStorage.getItem(PROFILE_PIC_KEY);
+      if (savedUri) setImageUri(savedUri);
+    } catch (err) {
+      console.error("Failed to load profile picture", err);
+    }
+  };
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "We need access to your photos to set a profile picture.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setImageUri(uri);
+      await saveImage(uri);
+    }
+  };
+
+  const saveImage = async (uri: string) => {
+    try {
+      await AsyncStorage.setItem(PROFILE_PIC_KEY, uri);
+    } catch (err) {
+      console.error("Failed to save profile picture", err);
+    }
   };
 
   const handleLogout = () => {
@@ -140,10 +173,10 @@ const MomProfile = () => {
   };
   const setChildren = useBabyStore((s) => s.setChildren);
   const children = useBabyStore((s) => s.children);
-
+  const { showToast } = useToast();
   const handleSave = async () => {
     if (!babyName.trim() || !date || !gender) {
-      Alert.alert("Please enter the child's full details");
+      showToast("Please enter the child's full details", "error");
       return;
     }
     setIsSubmitting(true);
@@ -155,7 +188,10 @@ const MomProfile = () => {
     );
 
     if (isDuplicate) {
-      Alert.alert("A child with this name and date of birth already exists");
+      showToast(
+        "A child with this name and date of birth already exists",
+        "error",
+      );
       return;
     }
 
@@ -164,7 +200,7 @@ const MomProfile = () => {
       setChildren([...children, newChild]);
       setFormActive(false);
 
-      Alert.alert("Child record created successfully");
+      showToast("Child record created successfully", "error");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add child");
     } finally {
@@ -175,8 +211,12 @@ const MomProfile = () => {
   return (
     <WrapScrollView screenTitle="Mom Profile">
       <View style={styles.profileCard}>
-        <TouchableOpacity style={styles.photoContainer} activeOpacity={0.7}>
-          <Image source={images.mom} style={styles.photo} />
+        <TouchableOpacity
+          style={styles.photoContainer}
+          activeOpacity={0.7}
+          onPress={pickImage}
+        >
+          <Image source={imageUri?  {uri:imageUri} : images.mom} style={styles.photo} />
           <View style={styles.cameraIcon}>
             <Ionicons name="camera" size={16} color={COLORS.white} />
           </View>
